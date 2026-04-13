@@ -20,6 +20,20 @@ for notification in notifications:
         notification.record and 
         hasattr(notification.record, 'text')):
         
+        author = notification.author
+        is_bot = False
+        
+        # Check for bot indicators in the profile labels
+        if hasattr(author, 'labels') and author.labels:
+            for label in author.labels:
+                if hasattr(label, 'val') and label.val.lower() == 'bot':
+                    print(f"Skipping bot account @{author.handle}")
+                    is_bot = True
+                    break
+        
+        if is_bot:
+            continue
+
         text_lower = notification.record.text.lower()
         if any(keyword in text_lower for keyword in hug_keywords):
             
