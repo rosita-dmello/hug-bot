@@ -37,22 +37,23 @@ for notification in notifications:
         text_lower = notification.record.text.lower()
         if any(keyword in text_lower for keyword in hug_keywords):
             
-            # Check if we've already replied to this post
+            # Check if we've already replied by looking at our own recent posts
             try:
-                thread_response = client.app.bsky.feed.get_post_thread(params={'uri': notification.uri})
-                post_thread = thread_response.thread
+                # Get our own recent posts
+                our_posts = client.app.bsky.feed.get_author_feed(params={'actor': client.me.handle, 'limit': 50})
                 
-                # Check if we've already replied
+                # Check if any of our recent posts are replies to this notification URI
                 already_replied = False
-                if hasattr(post_thread, 'replies') and post_thread.replies:
-                    our_handle = client.me.handle
-                    for reply in post_thread.replies:
-                        if (hasattr(reply, 'post') and 
-                            hasattr(reply.post, 'author') and 
-                            reply.post.author.handle == our_handle):
-                            already_replied = True
-                            print(f"Already replied to @{notification.author.handle}, skipping...")
-                            break
+                for post in our_posts.feed:
+                    if (hasattr(post, 'post') and 
+                        hasattr(post.post, 'record') and 
+                        hasattr(post.post.record, 'reply') and
+                        post.post.record.reply and
+                        hasattr(post.post.record.reply, 'parent') and
+                        post.post.record.reply.parent.uri == notification.uri):
+                        already_replied = True
+                        print(f"Already replied to @{notification.author.handle} (found in our recent posts), skipping...")
+                        break
                 
                 if not already_replied:
                     reply_targets.append({
@@ -63,8 +64,8 @@ for notification in notifications:
                     })
                     
             except Exception as e:
-                print(f"Error checking replies for @{notification.author.handle}: {e}")
-                # If we can't check replies, skip to be safe
+                print(f"Error checking our recent posts for @{notification.author.handle}: {e}")
+                # If we can't check our posts, skip to be safe
                 continue
 
 for i, target in enumerate(reply_targets, start=1):
